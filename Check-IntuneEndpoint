@@ -1,0 +1,39 @@
+# Generate a unique client request ID
+$clientRequestId = [guid]::NewGuid().Guid
+
+# Get Intune endpoints (FQDNs and IPs)
+$intuneEndpoints = Invoke-RestMethod -Uri "https://endpoints.office.com/endpoints/WorldWide?ServiceAreas=MEM&clientrequestid=$clientRequestId"
+
+# Extract FQDNs and IPs
+$fqdns = $intuneEndpoints | Where-Object { $_.urls } | Select-Object -ExpandProperty urls -Unique
+$ips = $intuneEndpoints | Where-Object { $_.ips } | Select-Object -ExpandProperty ips -Unique
+
+Write-Host "`n--- Testing FQDN Connectivity ---`n"
+
+foreach ($fqdn in $fqdns) {
+    try {
+        $result = Test-NetConnection -ComputerName $fqdn -Port 443 -WarningAction SilentlyContinue
+        if ($result.TcpTestSucceeded) {
+            Write-Host "[OK] $fqdn" -ForegroundColor Green
+        } else {
+            Write-Host "[FAIL] $fqdn" -ForegroundColor Red
+        }
+    } catch {
+        Write-Host "[ERROR] $fqdn - $_" -ForegroundColor Yellow
+    }
+}
+
+Write-Host "`n--- Testing IP Connectivity ---`n"
+
+foreach ($ip in $ips) {
+    try {
+        $result = Test-NetConnection -ComputerName $ip -Port 443 -WarningAction SilentlyContinue
+        if ($result.TcpTestSucceeded) {
+            Write-Host "[OK] $ip" -ForegroundColor Green
+        } else {
+            Write-Host "[FAIL] $ip" -ForegroundColor Red
+        }
+    } catch {
+        Write-Host "[ERROR] $ip - $_" -ForegroundColor Yellow
+    }
+}
